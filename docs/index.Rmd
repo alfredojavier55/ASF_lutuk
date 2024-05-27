@@ -1,0 +1,598 @@
+---
+title: "Descrip_lutuk"
+author: "Alfredo Acosta"
+date: "2024-05-26"
+output:
+  html_document: 
+    toc: yes
+    toc_float: true
+    theme: cosmo
+    fig_caption: yes
+    number_sections: yes
+    code_folding: hide
+  word_document: default
+  html_notebook: 
+    toc: yes
+---
+# Survey Mapping ASF outbreak Lutuk March 2024
+Instructions: 
+Go to all households in Lutuk that have pigs or that had pigs at the start of this outbreak
+Ask if there is anyone at home who is involved with the pigs. If not, go back later. 
+# Organizing dataset
+## Loading libraries 
+```{r }
+# Library ----
+library(readxl)
+library(dplyr)
+library(lubridate)
+library(leaflet)
+library(sf)
+library(DT)
+library(psych)
+library(sjmisc)
+library(ggplot2)
+```
+## Working directory
+```{r}
+setwd("C:/Users/alfredo.acosta/OneDrive - SVA/ASF_Uganda/R/")
+```
+
+## Reading excel file
+```{r}
+l <- read_xlsx("Kopia av Lutuk_data collection on ASF outbreak 2024 MIRED May 6.xlsx")
+colnames(l)
+```
+
+## Colnames preparation
+
+```{r}
+colnames(l) <- c("1digited_by",
+"l2_Way_point",                                                       
+"l3_NGwenAna_col",                                                            
+"l4_Sub_village",                                                                             "l5_Date_interview",                                                                        
+"l6_Name_producer",
+"l7_Gender",
+"l8_Age_years",
+"l9_Norting",
+"l10_Easting",
+"l11_Interviewed_by_G&Ana",                                                                  
+"l12_first_detection_ill_pig",                                    
+"l13_first_pig_die",                                                    
+"l14_N_init",                               
+"l15_N_affected",              
+"l16_N_deaths",                                                                              
+"l17_N_interview",                                                                   
+"l18_pnd_slaughtered",#Pigsnot dead (pnd)                                   
+"l19_pnd_sold_alive",                                   
+"l20_pnd_kept",                                 
+"l21_pnd_other",                                        
+"l22_pnd_other(what)",                                       
+"l23_pd_Ate",
+"l24_pd_Sold",
+"l25_pd_buried",
+"l26_pd_burned",
+"l27_pd_latrine",
+"l28_pd_bush_swamp_river",
+"l29_pd_other",
+"l30_pd_other_what",
+"l31_Why_sick_Weather",
+"l32_Why_Witchcraft",
+"l33_Why_Poison",
+"l34_Why_Jealousy",
+"l35_Why_Someone_killed_it",
+"l36_Why_pig_ate_something",
+"l37_Why_infected_by_sick_pig", 
+"l38_Why_got_infected_by_a_person",
+"l39_Why_Other",
+"l40_Why_(reason_other)",
+"l41_If_your_pig_was_infected_by_another_pig_or_person,how_this happened?",
+"l42_What_do_Slaughtered",              
+"l43_What_do_Sold_alive", 
+"l44_What_do_Slaughtered_healthy_pig(s)",           
+"l45_What_do_Sold_healthy_pig",        
+"l46_What_Prayed_",
+"l47_What_Separated_ill_from",     
+"l48_What_do_tied_my_pigs_fenced",        
+"l49_What_do_Gave_medication",
+"l50_What_do_(what)",
+"l51_What_do_asked_for_help",
+"l52_What_do_asked_for_help(whom)",
+"l53_What_do_Other_(yes/no)",
+"l54_What_do_Other(what)",
+"l55_How_this_affects_your_life?",
+"l56_How_do_you_feel",
+"l57_Do_you_think_invest_again",               
+"l58_Why_or_why_not?",                                                                       "l59_Is there anything you like to add?",                                                    "l60_Kommentarer från den som fyller i Excel")
+```
+
+```{r}
+colnames(l)
+```
+# When did you first detect and ill pig in this outbreak
+## Date checking
+```{r}
+l$Date_first_detection_ill_pig <- dmy(l$l12_first_detection_ill_pig)
+l$Date_first_pig_die <- dmy(l$l13_first_pig_die)
+l$Date_interview <- dmy(l$l5_Date_interview)
+
+l %>% 
+  select(l6_Name_producer, l12_first_detection_ill_pig,
+         Date_first_detection_ill_pig, l16_N_deaths) %>% 
+  filter(is.na(Date_first_detection_ill_pig) & l16_N_deaths > 0)
+```
+## Checking temporal evolution
+## Two surveys withouth date of first detection even though there is dead pigs
+## ? (please check two surveys Anywar Cody, Aryema Stephen)
+```{r}
+l %>% 
+group_by(l6_Name_producer) %>% 
+  filter(is.na(l12_first_detection_ill_pig) & l16_N_deaths > 0)
+```
+
+## ? Please check this surveys where there is not date of first pig deaths ()
+```{r}
+l %>% 
+select(l5_Date_interview,
+       l6_Name_producer,
+       Date_first_pig_die,
+       l16_N_deaths) %>% 
+  group_by(l6_Name_producer) %>% 
+  filter(is.na(Date_first_pig_die) & l16_N_deaths) %>% 
+  filter(is.na(Date_first_pig_die))
+```
+
+## 6 cases in 2023 and 46 in 2024 NA 47
+```{r}
+l %>% 
+  group_by(year(l$Date_first_detection_ill_pig)) %>% 
+  summarise(n())
+
+```
+
+```{r}
+l %>% 
+  group_by(year(l$Date_first_detection_ill_pig),
+           month(l$Date_first_detection_ill_pig, label=TRUE)) %>% 
+  summarise(n())
+
+
+```
+```{r}
+l %>% 
+  group_by(Month=month(Date_first_detection_ill_pig)) %>% 
+  summarise(outbreaks=n()) %>% 
+  ggplot(aes(Month, outbreaks))+
+  geom_col()
+
+```
+```{r}
+l %>% 
+  group_by(Month=floor_date(Date_first_detection_ill_pig, unit="month")) %>% 
+  summarise(outbreaks=n()) %>% 
+  ggplot(aes(Month, outbreaks))+
+  geom_col()
+
+```
+## time differences
+## ? Olinga David Paska, the date of interview is precedent from the first detection of ill pigs, check the dates.
+## ? Agen, Oling, Opiyo, there is not death pigs but still the interview was made in the past 7, 278 and 1 days before the first detection.
+```{r}
+
+l$dif_first_detection_to_interview <- l$Date_interview - l$Date_first_detection_ill_pig
+
+summary(as.numeric(l$Date_interview - l$Date_first_detection_ill_pig))
+
+l %>% 
+  group_by(l6_Name_producer, 
+           l5_Date_interview, 
+           l12_first_detection_ill_pig, 
+           l13_first_pig_die) %>% 
+  filter(dif_first_detection_to_interview <0) %>%
+  summarise(n(), sum(dif_first_detection_to_interview))
+```
+
+```{r}
+l %>% 
+  group_by(l6_Name_producer, 
+           l5_Date_interview, 
+           l12_first_detection_ill_pig, 
+           l13_first_pig_die) %>% 
+  filter(dif_first_detection_to_interview >0) %>%
+  summarise(n(), sum(dif_first_detection_to_interview))
+
+l %>% 
+  filter(dif_first_detection_to_interview >0) %>%
+  summarise(n(), mean(dif_first_detection_to_interview))
+
+l %>% 
+  group_by(l4_Sub_village) %>% 
+  filter(dif_first_detection_to_interview >0) %>%
+  summarise(n(), interval=mean(dif_first_detection_to_interview)) %>% 
+  arrange(desc(interval))
+
+
+```
+
+
+# Fixing grouped variables
+```{r}
+l$l14_N_init <- as.numeric(l$l14_N_init)
+l$l15_N_affected <- as.numeric(l$l15_N_affected)
+l$l16_N_deaths <- as.numeric(l$l16_N_deaths)
+l$l17_N_interview <- as.numeric(l$l17_N_interview)
+
+#pigs not death
+l$l18_pnd_slaughtered <- gsub("No", "0", l$l18_pnd_slaughtered)
+l$l18_pnd_slaughtered <- as.numeric(l$l18_pnd_slaughtered)
+
+l$l19_pnd_sold_alive <- gsub("No", "0", l$l19_pnd_sold_alive)
+l$l19_pnd_sold_alive <- as.numeric(l$l19_pnd_sold_alive)
+
+l$l20_pnd_kept <- as.numeric(l$l20_pnd_kept)
+
+l$l19_pnd_sold_alive <- as.numeric(l$l21_pnd_other)
+```
+# Population check
+## Individual farms were balance is not 0 (death+non.death(slaughter+sold+kept)). Please check this 16 surveys:
+i.e. Owor Gedge at the start of the outbreak had 20 pigs, no deaths but kept 2, maybe he kept 20 instead of 2. The balance is 18. 20-2=18
+Apiyo Grace at the start of the outbreak had 1 pig, no deaths, he kept 10, maybe he kept 1 instead of 10. Balance is -9. 1-10=-9.
+```{r}
+datatable(l %>% 
+  # group_by(l4_Sub_village) %>% 
+  group_by(l6_Name_producer) %>% 
+  summarise(n(),Initial_pop=sum(l14_N_init, na.rm = TRUE),
+            Deaths=sum(l16_N_deaths, na.rm = TRUE),
+            # Affected=sum(l15_N_affected, na.rm = TRUE),
+            Not_dead=sum(l18_pnd_slaughtered, 
+                         l19_pnd_sold_alive, 
+                         l20_pnd_kept, na.rm = TRUE),
+            Balance=Initial_pop-Deaths-Not_dead,
+            # start=Initial_pop - Now,
+    slaughther=sum(l18_pnd_slaughtered, na.rm = TRUE),
+            Sold=sum(l19_pnd_sold_alive, na.rm = TRUE),
+            Kept=sum(l20_pnd_kept, na.rm = TRUE),
+            Interview=sum(l17_N_interview, na.rm = TRUE),
+) %>% 
+  arrange(desc(Balance)) %>% 
+  filter(Balance != 0) %>% 
+  print(n=100))
+
+
+```
+
+## Individual farms were balance is 0 (death+non.death(slaughter+sold+kept)). 83 entries are ok. Balance is checked considering the number of initial pigs at the beggining of the outbreak minus the slaughtered, sold or kept.
+```{r}
+datatable(l %>% 
+  # group_by(l4_Sub_village) %>% 
+  group_by(l6_Name_producer) %>% 
+  summarise(n(),Initial_pop=sum(l14_N_init, na.rm = TRUE),
+            Deaths=sum(l16_N_deaths, na.rm = TRUE),
+            # Affected=sum(l15_N_affected, na.rm = TRUE),
+            Not_dead=sum(l18_pnd_slaughtered, 
+                         l19_pnd_sold_alive, 
+                         l20_pnd_kept, na.rm = TRUE),
+            Balance=Initial_pop-Deaths-Not_dead,
+            # start=Initial_pop - Now,
+    slaughther=sum(l18_pnd_slaughtered, na.rm = TRUE),
+            Sold=sum(l19_pnd_sold_alive, na.rm = TRUE),
+            Kept=sum(l20_pnd_kept, na.rm = TRUE),
+            # Interview=sum(l17_N_interview, na.rm = TRUE),
+) %>% 
+  arrange(desc(Balance)) %>% 
+  filter(Balance == 0) %>% 
+  print(n=100))
+```
+## Balance check grouped by village.
+```{r}
+datatable(l %>% 
+  group_by(l4_Sub_village) %>%
+  # group_by(l6_Name_producer) %>% 
+  summarise(n(),Initial_pop=sum(l14_N_init, na.rm = TRUE),
+            Deaths=sum(l16_N_deaths, na.rm = TRUE),
+            # Affected=sum(l15_N_affected, na.rm = TRUE),
+            Not_dead=sum(l18_pnd_slaughtered, 
+                         l19_pnd_sold_alive, 
+                         l20_pnd_kept, na.rm = TRUE),
+            Balance=Initial_pop-Deaths-Not_dead,
+            # start=Initial_pop - Now,
+    slaughther=sum(l18_pnd_slaughtered, na.rm = TRUE),
+            Sold=sum(l19_pnd_sold_alive, na.rm = TRUE),
+            Kept=sum(l20_pnd_kept, na.rm = TRUE),
+            # Interview=sum(l17_N_interview, na.rm = TRUE),
+) %>% 
+  arrange(desc(Balance)) %>% 
+  # filter(Balance == 0) %>% 
+  print(n=100))
+```
+
+## Calculating aparent prevalence 
+```{r}
+l$l61_apparent_prevalence <- l$l16_N_deaths/l$l14_N_init
+l$l62attack_rate <- l$l16_N_deaths/l$l14_N_init
+
+l %>% 
+  select(l14_N_init, 
+         l15_N_affected, 
+         l16_N_deaths, 
+         l18_pnd_slaughtered, 
+         l19_pnd_sold_alive, 
+         l20_pnd_kept,
+         l17_N_interview,
+         l61_apparent_prevalence) %>% 
+  descr()
+
+summary(l$l61_apparent_prevalence)
+```
+```{r}
+l %>% 
+  group_by(l4_Sub_village) %>% 
+  select(l14_N_init, 
+         l15_N_affected, 
+         l16_N_deaths, 
+         l18_pnd_slaughtered, 
+         l19_pnd_sold_alive, 
+         l20_pnd_kept,
+         l17_N_interview,
+         l61_apparent_prevalence) %>% 
+  descr()
+
+```
+
+# Apparent prevalence by farm
+```{r}
+datatable(l %>% 
+  # group_by(l4_Sub_village) %>%
+  group_by(l6_Name_producer) %>%
+  summarise(n(), Initial_pop=sum(l14_N_init, na.rm = TRUE),
+            Deaths=sum(l16_N_deaths, na.rm = TRUE),
+            # Affected=sum(l15_N_affected, na.rm = TRUE),
+            Apparent_prevalence=round((Deaths/Initial_pop),4)*100) %>% 
+  arrange(desc(Apparent_prevalence)) %>% 
+  # filter(Balance == 0) %>% 
+  print(n=100))
+
+```
+
+# Total Apparent prevalence by village
+```{r}
+datatable(l %>% 
+  group_by(l4_Sub_village) %>%
+  summarise(n(), Initial_pop=sum(l14_N_init, na.rm = TRUE),
+            Deaths=sum(l16_N_deaths, na.rm = TRUE),
+            # Affected=sum(l15_N_affected, na.rm = TRUE),
+            Apparent_prevalence=round((Deaths/Initial_pop),4)*100) %>% 
+  arrange(desc(Apparent_prevalence)) %>% 
+  # filter(Balance == 0) %>% 
+  print(n=100))
+
+```
+
+
+## Distribution of initial and final population over villages
+```{r}
+ggplot(l, aes(l14_N_init, l4_Sub_village, fill=l4_Sub_village))+
+  geom_boxplot()+
+  labs(
+    y=NULL,
+    x="Number of pigs at the begining of the outbreak"
+  )
+
+ggplot(l, aes(l17_N_interview, l4_Sub_village, fill=l4_Sub_village))+
+  geom_boxplot()+
+  labs(
+    y=NULL,
+    x="Number of pigs at the interview"
+  )
+
+```
+# How many pigs did the household have at the start of the outbreak
+
+
+# What did you do with the pigs that died?
+## Check errors of problems (nothing wrong found)
+```{r}
+l$l23_pd_Ate[l$l23_pd_Ate == "NA"] <- NA
+l$l24_pd_Sold[l$l24_pd_Sold == "NA"] <- NA
+l$l25_pd_buried[l$l25_pd_buried == "NA"] <- NA
+l$l26_pd_burned[l$l26_pd_burned == "NA"] <- NA
+l$l27_pd_latrine[l$l27_pd_latrine == "NA"] <- NA
+l$l28_pd_bush_swamp_river[l$l28 == "NA"] <- NA
+
+l %>% 
+  filter(is.na(l23_pd_Ate) & l16_N_deaths != 0)
+
+l %>% 
+  filter(is.na(l24_pd_Sold) & l16_N_deaths != 0)
+
+l %>% 
+  filter(is.na(l25_pd_buried) & l16_N_deaths != 0)
+
+l %>% 
+  filter(is.na(l26_pd_burned) & l16_N_deaths != 0)
+
+l %>% 
+  filter(is.na(l27_pd_latrine) & l16_N_deaths != 0)
+
+```
+## Changing to numerical to quantify
+```{r}
+l$pd_ate <- l$l23_pd_Ate
+l$pd_ate <- gsub("Yes", "1", l$pd_ate)
+l$pd_ate <- gsub("No", "0", l$pd_ate)
+
+l$pd_sold <- l$l24_pd_Sold
+l$pd_sold <- gsub("Yes", "1", l$pd_sold)
+l$pd_sold <- gsub("No", "0", l$pd_sold)
+
+l$pd_buried <- l$l25_pd_buried
+l$pd_buried <- gsub("Yes", "1", l$pd_buried)
+l$pd_buried <- gsub("No", "0", l$pd_buried)
+
+l$pd_burned <- l$l26_pd_burned
+l$pd_burned <- gsub("Yes", "1", l$pd_burned)
+l$pd_burned <- gsub("No", "0", l$pd_burned)
+
+l$pd_latrine <- l$l27_pd_latrine
+l$pd_latrine <- gsub("Yes", "1", l$pd_latrine)
+l$pd_latrine <- gsub("No", "0", l$pd_latrine)
+
+l$pd_bush_river <- l$l28_pd_bush_swamp_river
+l$pd_bush_river <- gsub("Yes", "1", l$pd_bush_river)
+l$pd_bush_river <- gsub("No", "0", l$pd_bush_river)
+
+l$pd_other <- l$l29_pd_other
+l$pd_other <- gsub("Yes", "1", l$pd_other)
+l$pd_other <- gsub("No", "0", l$pd_other)
+
+l$pd_ate <- as.numeric(l$pd_ate)
+l$pd_sold <- as.numeric(l$pd_sold)
+l$pd_buried <- as.numeric(l$pd_buried)
+l$pd_burned <- as.numeric(l$pd_burned)
+l$pd_latrine <- as.numeric(l$pd_latrine)
+l$pd_bush_river <- as.numeric(l$pd_bush_river)
+l$pd_other <- as.numeric(l$pd_ate)
+
+```
+```{r}
+
+l %>% 
+  # group_by(l$l4_Sub_village) %>%
+  summarise(Ate=sum(pd_ate, na.rm =TRUE),
+            Sold=sum(pd_sold, na.rm =TRUE),
+            Burried=sum(pd_buried, na.rm =TRUE),
+            Burned=sum(pd_burned, na.rm =TRUE),
+            Latrine=sum(pd_latrine, na.rm =TRUE),
+            Bush=sum(pd_bush_river, na.rm =TRUE),
+            Other=sum(pd_other, na.rm =TRUE),)
+
+l %>% 
+  group_by(l$l4_Sub_village) %>%
+  summarise(Ate=sum(pd_ate, na.rm =TRUE),
+            Sold=sum(pd_sold, na.rm =TRUE),
+            Burried=sum(pd_buried, na.rm =TRUE),
+            Burned=sum(pd_burned, na.rm =TRUE),
+            Latrine=sum(pd_latrine, na.rm =TRUE),
+            Bush=sum(pd_bush_river, na.rm =TRUE),
+            Other=sum(pd_other, na.rm =TRUE),)
+
+l$l30_pd_other_what
+
+```
+
+<!-- # # What do you think caused the pig to get sick? (you can pick several)  -->
+<!-- # ```{r} -->
+<!-- # ## Changing to numerical to quantify -->
+<!-- # ```{r} -->
+<!-- #  -->
+<!-- # l$l31_Why_sick_Weather[l$l31_Why_sick_Weather == "NA"] <- NA -->
+<!-- # l$l32_Why_Witchcraft[l$l32_Why_Witchcraft == "NA"] <- NA -->
+<!-- # l$l33_Why_Poison[l$l33_Why_Poison == "NA"] <- NA -->
+<!-- # l$l34_Why_Jealousy[l$l34_Why_Jealousy == "NA"] <- NA -->
+<!-- # l$l34_Why_Jealousy[l$l35_Why_Someone_killed_it == "NA"] <- NA -->
+<!-- # l$l35_Why_Someone_killed_it[l$l35_Why_Someone_killed_it == "NA"] <- NA -->
+<!-- # l$l36_Why_pig_ate_something[l$l36_Why_pig_ate_something == "NA"] <- NA -->
+<!-- # l$l37_Why_infected_by_sick_pig[l$l37_Why_infected_by_sick_pig== "NA"] <- NA -->
+<!-- # l$l38_Why_got_infected_by_a_person[l$l38_Why_got_infected_by_a_person == "NA"] <-  -->
+<!-- #  -->
+<!-- #  -->
+<!-- # l$why_sick_weather <- l[,2] -->
+<!-- # l$why_sick_weater <- gsub("Yes", "1", l$why_sick_weater) -->
+<!-- # l$pd_weather <- gsub("No", "0", l$pd_weather) -->
+<!-- #  -->
+<!-- # l$pd_sold <- l$l24_pd_Sold -->
+<!-- # l$pd_sold <- gsub("Yes", "1", l$pd_sold) -->
+<!-- # l$pd_sold <- gsub("No", "0", l$pd_sold) -->
+<!-- #  -->
+<!-- # l$pd_buried <- l$l25_pd_buried -->
+<!-- # l$pd_buried <- gsub("Yes", "1", l$pd_buried) -->
+<!-- # l$pd_buried <- gsub("No", "0", l$pd_buried) -->
+<!-- #  -->
+<!-- # l$pd_burned <- l$l26_pd_burned -->
+<!-- # l$pd_burned <- gsub("Yes", "1", l$pd_burned) -->
+<!-- # l$pd_burned <- gsub("No", "0", l$pd_burned) -->
+<!-- #  -->
+<!-- # l$pd_latrine <- l$l27_pd_latrine -->
+<!-- # l$pd_latrine <- gsub("Yes", "1", l$pd_latrine) -->
+<!-- # l$pd_latrine <- gsub("No", "0", l$pd_latrine) -->
+<!-- #  -->
+<!-- # l$pd_bush_river <- l$l28_pd_bush_swamp_river -->
+<!-- # l$pd_bush_river <- gsub("Yes", "1", l$pd_bush_river) -->
+<!-- # l$pd_bush_river <- gsub("No", "0", l$pd_bush_river) -->
+<!-- #  -->
+<!-- # l$pd_other <- l$l29_pd_other -->
+<!-- # l$pd_other <- gsub("Yes", "1", l$pd_other) -->
+<!-- # l$pd_other <- gsub("No", "0", l$pd_other) -->
+<!-- #  -->
+<!-- # l$pd_ate <- as.numeric(l$pd_ate) -->
+<!-- # l$pd_sold <- as.numeric(l$pd_sold) -->
+<!-- # l$pd_buried <- as.numeric(l$pd_buried) -->
+<!-- # l$pd_burned <- as.numeric(l$pd_burned) -->
+<!-- # l$pd_latrine <- as.numeric(l$pd_latrine) -->
+<!-- # l$pd_bush_river <- as.numeric(l$pd_bush_river) -->
+<!-- # l$pd_other <- as.numeric(l$pd_ate) -->
+
+# Map
+## Preparing coordinates
+
+## ? 	Check Acayo Nighthy Santo nort coordinate (y), it is the same as x. Correct.
+## ? Check Christine Lukioiya / Innocen atimango easting (x) coordinate
+
+```{r}
+l$y <- l$l9_Norting
+l$y <- gsub("-", ".", l$y)
+l$y <- as.numeric(l$y)
+
+l$x <- l$l10_Easting
+l$x <- gsub("-", ".", l$x)
+l$x <- as.numeric(l$x)
+
+plot(l$x, l$y)
+
+ggplot
+
+```
+
+## Manipulable map of the complete dataset
+```{r}
+library(leaflet)
+l$owner <- l$l6_Name_producer
+
+map <- leaflet(l) %>%
+  addProviderTiles(providers$Esri)
+
+mc <- map %>%
+  setView(lng = 32, lat = 2, zoom = 7) %>%
+  addMarkers(~x, ~y,
+              popup = ~paste("Owner:", owner,
+                             "<br>", "Prevalence", l61_apparent_prevalence,
+                             "<br>", "Deaths", l16_N_deaths))
+
+mc
+
+```
+
+## Manipulable map of the cases (farms with reported deaths)
+```{r}
+
+l2 <- l %>% 
+  filter(l16_N_deaths > 0)
+
+
+map2 <- leaflet(l2) %>%
+  # addProviderTiles(providers$OpenStreetMap)
+  addProviderTiles(providers$Esri.WorldImagery)
+
+mp <- map2 %>%
+  setView(lng = 32, lat = 2, zoom = 7) %>%
+  addMarkers(~x, ~y,
+              popup = ~paste("Owner:", owner,
+                             "<br>", "Aparent Prev", l61_apparent_prevalence,
+                             "<br>", "Deaths", l16_N_deaths))
+
+mp
+
+```
+
+# Credits 
+Acosta, Alfredo PhD<sup>1</sup>. 
+**SVA<sup>1</sup>**: SVA <http://www.sva.se/>. 
