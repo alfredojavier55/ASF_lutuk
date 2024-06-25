@@ -23,6 +23,7 @@ Ask if there is anyone at home who is involved with the pigs. If not, go back la
 ```{r }
 # Library ----
 library(readxl)
+library(arsenal)
 library(dplyr)
 library(lubridate)
 library(leaflet)
@@ -39,17 +40,25 @@ setwd("C:/Users/alfredo.acosta/OneDrive - SVA/ASF_Uganda/R/")
 
 ## Reading excel file
 ```{r}
-l <- read_xlsx("Kopia av Lutuk_data collection on ASF outbreak 2024 MIRED May 6.xlsx")
-colnames(l)
+l <- read_xlsx("Kopia av Lutuk_data collection on ASF outbreak 2024 MIRED May 6.xlsx", col_types = "text")
+m <- read_xlsx("kopia av Lutuk_data collection on ASF outbreak 2024 MIRED May 6 GV.xlsx", col_types = "text")
 ```
+# Comparison between versions 
+```{r}
+comparedf(l, m)
+summary(comparedf(l, m))
 
+# Differences detected in administration variables. deleting m
+rm(m)
+```
+ 
 ## Colnames preparation
-
 ```{r}
 colnames(l) <- c("1digited_by",
 "l2_Way_point",                                                       
 "l3_NGwenAna_col",                                                            
-"l4_Sub_village",                                                                             "l5_Date_interview",                                                                        
+"l4_Sub_village",
+"l5_Date_interview",                                                                        
 "l6_Name_producer",
 "l7_Gender",
 "l8_Age_years",
@@ -102,59 +111,108 @@ colnames(l) <- c("1digited_by",
 "l55_How_this_affects_your_life?",
 "l56_How_do_you_feel",
 "l57_Do_you_think_invest_again",               
-"l58_Why_or_why_not?",                                                                       "l59_Is there anything you like to add?",                                                    "l60_Kommentarer från den som fyller i Excel")
+"l58_Why_or_why_not?",
+"l59_Is there anything you like to add?",
+"l60_Kommentarer från den som fyller i Excel")
 ```
 
 ```{r}
 colnames(l)
 ```
-# When did you first detect and ill pig in this outbreak
-## Date checking
+# Date checking
+## Premises with death pigs but without date of first detection of ill pig
+## ? 66 and 116 excluded
 ```{r}
 l$Date_first_detection_ill_pig <- dmy(l$l12_first_detection_ill_pig)
 l$Date_first_pig_die <- dmy(l$l13_first_pig_die)
 l$Date_interview <- dmy(l$l5_Date_interview)
 
 l %>% 
-  select(l6_Name_producer, l12_first_detection_ill_pig,
+  select(l2_Way_point, l6_Name_producer, 
+         Date_interview,
+         l12_first_detection_ill_pig,
          Date_first_detection_ill_pig, l16_N_deaths) %>% 
   filter(is.na(Date_first_detection_ill_pig) & l16_N_deaths > 0)
-```
-## Checking temporal evolution
-## Two surveys withouth date of first detection even though there is dead pigs
-## ? (please check two surveys Anywar Cody, Aryema Stephen)
-```{r}
-l %>% 
-group_by(l6_Name_producer) %>% 
-  filter(is.na(l12_first_detection_ill_pig) & l16_N_deaths > 0)
-```
 
-## ? Please check this surveys where there is not date of first pig deaths ()
+#Correcting 66 from the form 
+l$Date_first_detection_ill_pig[l$l2_Way_point == 66] <- l$Date_interview[l$l2_Way_point == 66] - days(53)
+l$Date_first_detection_ill_pig[l$l2_Way_point == 116] <- l$Date_interview[l$l2_Way_point == 116] - days(53)
+```
+## Premises with death pigs but without date of first death of pig
+## ?? 37,38,40,42,43 I assume that date of first pig die will be the mean days between detection and die 
 ```{r}
 l %>% 
-select(l5_Date_interview,
+select(l2_Way_point,
+       l5_Date_interview,
        l6_Name_producer,
+       Date_first_detection_ill_pig,
        Date_first_pig_die,
        l16_N_deaths) %>% 
-  group_by(l6_Name_producer) %>% 
-  filter(is.na(Date_first_pig_die) & l16_N_deaths) %>% 
-  filter(is.na(Date_first_pig_die))
+  filter(is.na(Date_first_pig_die) & as.numeric(l16_N_deaths) >0)
 ```
 
-## 6 cases in 2023 and 46 in 2024 NA 47
+## 6 outbreaks in 2023 and 46 in 2024 NA 47
 ```{r}
 l %>% 
-  group_by(year(l$Date_first_detection_ill_pig)) %>% 
+  group_by(year(Date_first_detection_ill_pig)) %>% 
+  summarise(n())
+
+l %>% 
+  group_by(year(l$Date_first_pig_die)) %>% 
   summarise(n())
 
 ```
 
+## Replacing 2023 to 2024 in first detection and death
+## 31,37,46,49,72,79 replaced date of first detection in 2023 to 2024 interview date and death date matches
+## ?31 replaced date of death 2024 to 2023 
+```{r}
+l %>% 
+  filter(year(Date_first_detection_ill_pig) == 2023) %>% 
+  select(l2_Way_point,
+       l6_Name_producer,
+       Date_first_detection_ill_pig,
+       Date_interview,
+       Date_first_pig_die,
+       l16_N_deaths)
+
+l <- l %>% 
+  mutate(Date_first_detection_ill_pig = as.Date(ifelse(lubridate::year(Date_first_detection_ill_pig) == 2023, 
+         Date_first_detection_ill_pig + lubridate::years(1),
+         Date_first_detection_ill_pig)))
+
+l %>% 
+  filter(year(Date_first_pig_die) == 2023) %>% 
+  select(l2_Way_point,
+       l6_Name_producer,
+       Date_first_detection_ill_pig,
+       Date_interview,
+       Date_first_pig_die,
+       l16_N_deaths)
+
+l <- l %>% 
+  mutate(Date_first_pig_die = as.Date(ifelse(lubridate::year(Date_first_pig_die) == 2023, 
+         Date_first_pig_die + lubridate::years(1),
+         Date_first_pig_die)))
+
+l <- l %>% 
+  mutate(Date_first_detection_ill_pig = as.Date(ifelse(lubridate::year(Date_first_detection_ill_pig) != 2024, 
+         Date_first_detection_ill_pig + lubridate::years(-1),
+         Date_first_detection_ill_pig)))
+
+```
+
+## Outbreaks with date of first_detection inoctober and december
 ```{r}
 l %>% 
   group_by(year(l$Date_first_detection_ill_pig),
            month(l$Date_first_detection_ill_pig, label=TRUE)) %>% 
   summarise(n())
 
+l %>% 
+  group_by(year(l$Date_first_pig_die),
+           month(l$Date_first_pig_die, label=TRUE)) %>% 
+  summarise(n())
 
 ```
 ```{r}
@@ -162,44 +220,227 @@ l %>%
   group_by(Month=month(Date_first_detection_ill_pig)) %>% 
   summarise(outbreaks=n()) %>% 
   ggplot(aes(Month, outbreaks))+
-  geom_col()
+  geom_col()+
+  labs(x="Date of first detection ill pigs")
 
-```
-```{r}
 l %>% 
-  group_by(Month=floor_date(Date_first_detection_ill_pig, unit="month")) %>% 
+  group_by(Month=month(Date_first_pig_die)) %>% 
   summarise(outbreaks=n()) %>% 
   ggplot(aes(Month, outbreaks))+
-  geom_col()
+  geom_col()+
+  labs(x="Date of first pig die")
 
 ```
-## time differences
-## ? Olinga David Paska, the date of interview is precedent from the first detection of ill pigs, check the dates.
-## ? Agen, Oling, Opiyo, there is not death pigs but still the interview was made in the past 7, 278 and 1 days before the first detection.
+## Events in October and december, make sense??
+## form 98 corrected Date of interview from image
 ```{r}
+l %>% 
+select(l2_Way_point,
+       l5_Date_interview,
+       Date_interview,
+       l6_Name_producer,
+       Date_first_detection_ill_pig,
+       Date_first_pig_die,
+       l16_N_deaths) %>% 
+  filter(month(Date_first_detection_ill_pig) >5) 
 
+#Correcting 98 from the form 
+l$Date_interview[l$l2_Way_point == 98] <- as.Date("2024-03-27")
+
+#Correcting 67 and 98 from 2024 to 2023
+l <- l %>% 
+  mutate(Date_first_detection_ill_pig = as.Date(ifelse(lubridate::month(Date_first_detection_ill_pig) > 5, 
+         Date_first_detection_ill_pig + lubridate::years(-1),
+         Date_first_detection_ill_pig)))
+
+
+l %>% 
+select(l2_Way_point,
+       l5_Date_interview,
+       Date_interview,
+       l6_Name_producer,
+       Date_first_detection_ill_pig,
+       Date_first_pig_die,
+       l16_N_deaths) %>% 
+  filter(month(Date_first_pig_die) >5)
+
+
+l <- l %>% 
+  mutate(Date_first_pig_die = as.Date(ifelse(lubridate::month(Date_first_pig_die) > 5, 
+         Date_first_pig_die + lubridate::years(-1),
+         Date_first_pig_die)))
+
+
+```
+# Visualization of months
+```{r}
+l %>% 
+  group_by(month=floor_date(Date_first_detection_ill_pig, unit= "month")) %>% 
+  summarise(outbreaks=n()) %>% 
+  ggplot(aes(month, outbreaks))+
+  geom_col()+
+  geom_text(aes(label=outbreaks), vjust= -0.5)+
+  ylim(0,35)+
+  labs(x="Date of first detection ill pigs")
+
+l %>% 
+  group_by(month=floor_date(Date_first_pig_die, unit= "month")) %>% 
+  summarise(outbreaks=n()) %>% 
+  ggplot(aes(month, outbreaks))+
+  geom_col()+
+  geom_text(aes(label=outbreaks), vjust= -0.5)+
+  ylim(0,30)+
+  labs(x="Date of first pig is dead")
+
+```
+
+## Time differences
+## 101, 40 thefirst detection of ill pigs happens after the interview (7 and 1 days), check the dates.
+## 35 first pig die before detecting the disease. The problem is incorrect transcript first detection 3 or 5 march, first pig die on 7 of march and the interview was on 15 of march. Corrected.
+```{r}
 l$dif_first_detection_to_interview <- l$Date_interview - l$Date_first_detection_ill_pig
 
+l$dif_first_pig_die_to_interview <- l$Date_interview - l$Date_first_pig_die
+
+summary(as.numeric(l$dif_first_detection_to_interview))
+
+summary(as.numeric(l$dif_first_detection_to_interview))
+summary(as.numeric(l$dif_first_pig_die_to_interview))
+
+boxplot(as.numeric(l$dif_first_detection_to_interview))
+boxplot(as.numeric(l$dif_first_pig_die_to_interview))
+
+l$l16_N_deaths <- as.numeric(l$l16_N_deaths)
 summary(as.numeric(l$Date_interview - l$Date_first_detection_ill_pig))
 
 l %>% 
-  group_by(l6_Name_producer, 
-           l5_Date_interview, 
-           l12_first_detection_ill_pig, 
-           l13_first_pig_die) %>% 
+  group_by(l4_Sub_village) %>% 
+  summarise(n(), mean(dif_first_detection_to_interview, na.rm = TRUE))
+
+
+
+l %>% 
+  group_by(l2_Way_point,
+          l6_Name_producer, 
+           Date_first_detection_ill_pig, 
+           Date_first_pig_die,
+           Date_interview, 
+           dif_first_detection_to_interview) %>% 
   filter(dif_first_detection_to_interview <0) %>%
-  summarise(n(), sum(dif_first_detection_to_interview))
+  summarise(n())
+
+#Correcting 35 from the form 
+l$Date_first_detection_ill_pig[l$l2_Way_point == 35] <- as.Date("2024-03-05")
+
 ```
 
+## Time difference between detection and death
+## 116 
+## 80 The first pig died 19 days after detecting the first pig ill. It makes sense if the 9/02/2024 is 29/02/2024 because the first detected ill was on 28/02/2024 (corrected) 
+```{r}
+l$dif_detection_death <- l$Date_first_pig_die - l$Date_first_detection_ill_pig
+
+summary(as.numeric(l$dif_detection_death))
+
+boxplot(as.numeric(l$dif_detection_death))
+
+
+l %>% 
+  group_by(l2_Way_point,
+          l6_Name_producer, 
+           Date_first_detection_ill_pig, 
+           Date_first_pig_die,
+           Date_interview, 
+           dif_first_detection_to_interview,
+            dif_detection_death) %>% 
+  filter(l16_N_deaths >0) %>%
+  summarise(n()) %>% 
+  arrange(desc(dif_detection_death))
+
+# Corrected 80
+l$Date_first_pig_die[l$l2_Way_point == 80] <- as.Date("2024-02-29")
+
+
+```
+
+## Selection of cases=1, controls=0
 ```{r}
 l %>% 
-  group_by(l6_Name_producer, 
-           l5_Date_interview, 
-           l12_first_detection_ill_pig, 
-           l13_first_pig_die) %>% 
-  filter(dif_first_detection_to_interview >0) %>%
-  summarise(n(), sum(dif_first_detection_to_interview))
+  group_by(l2_Way_point,
+           Date_first_detection_ill_pig, 
+           Date_first_pig_die,
+           Date_interview, 
+           dif_first_detection_to_interview,
+          dif_detection_death) %>% 
+  filter(l16_N_deaths >0) %>%
+  filter(!is.na(Date_first_detection_ill_pig)) %>% 
+  summarise(n()) %>% 
+  arrange(desc(dif_detection_death))
 
+l <- l %>%
+  mutate(cases = ifelse(!is.na(Date_first_detection_ill_pig) & l16_N_deaths > 0, "Case", "Control"))
+
+table(l$cases)
+
+
+l %>% 
+  select(l2_Way_point, cases, l16_N_deaths, l14_N_init, l15_N_affected) %>% 
+  filter(cases == "Control") %>% 
+  filter(l16_N_deaths >0)
+
+l %>% 
+  select(l2_Way_point, cases, l16_N_deaths, l14_N_init, l15_N_affected, Date_first_detection_ill_pig, Date_first_pig_die) %>% 
+  filter(cases == "Control") %>% 
+  filter(year(Date_first_detection_ill_pig) ==  "2023")
+
+
+```
+# Graph epidemiologcal presentation
+
+```{r}
+
+datatable(l %>%
+  group_by(cases, week=floor_date(Date_first_detection_ill_pig, unit= 'week'))%>%
+  filter(cases == "Case") %>% 
+  # filter(week > "2024-01-01") %>% 
+  summarise(Cases=sum(l16_N_deaths),
+            Outbreaks=sum(cases == 'Case')) %>%
+  arrange(week))
+
+l %>%
+  group_by(cases, week=floor_date(Date_first_detection_ill_pig, unit= 'week'))%>%
+  filter(cases == "Case") %>% 
+  # filter(week > "2024-01-01") %>% 
+  summarise(Cases=sum(l16_N_deaths),
+            Outbreaks=sum(cases == 'Case'),
+            Observations=n()) %>%  
+  ggplot()+
+  geom_col(aes(week, Cases), fill="#FC8D62")+
+  # geom_col(aes(week, Observations), fill="#21918c") +
+  geom_point(aes(week, Outbreaks*2), size=3, color="#A6D854")+
+  geom_line(aes(week, Outbreaks*2), size=0.1, color="#A6D854")+
+  scale_y_continuous(
+  sec.axis = sec_axis(trans = ~. /2, name="Number of outbreaks")) +
+  labs(fill="",
+       x="Epidemiological week",
+       y="Number of death pigs")+
+  theme_minimal()+
+  theme(text = element_text(size = 14)) +
+  scale_color_brewer(palette = "Set2")
+
+# brewer.pal(n = 4, name = "Set1")
+
+```
+## Deleting cases
+```{r}
+l <- l[l$l2_Way_point != "66",]
+l <- l[l$l2_Way_point != "67",]
+l <- l[l$l2_Way_point != "116",]
+```
+
+
+
+```{r}
 l %>% 
   filter(dif_first_detection_to_interview >0) %>%
   summarise(n(), mean(dif_first_detection_to_interview))
@@ -209,10 +450,7 @@ l %>%
   filter(dif_first_detection_to_interview >0) %>%
   summarise(n(), interval=mean(dif_first_detection_to_interview)) %>% 
   arrange(desc(interval))
-
-
 ```
-
 
 # Fixing grouped variables
 ```{r}
@@ -239,8 +477,8 @@ Apiyo Grace at the start of the outbreak had 1 pig, no deaths, he kept 10, maybe
 ```{r}
 datatable(l %>% 
   # group_by(l4_Sub_village) %>% 
-  group_by(l6_Name_producer) %>% 
-  summarise(n(),Initial_pop=sum(l14_N_init, na.rm = TRUE),
+  group_by(l2_Way_point, l6_Name_producer) %>% 
+  summarise(Initial_pop=sum(l14_N_init, na.rm = TRUE),
             Deaths=sum(l16_N_deaths, na.rm = TRUE),
             # Affected=sum(l15_N_affected, na.rm = TRUE),
             Not_dead=sum(l18_pnd_slaughtered, 
@@ -264,7 +502,7 @@ datatable(l %>%
 ```{r}
 datatable(l %>% 
   # group_by(l4_Sub_village) %>% 
-  group_by(l6_Name_producer) %>% 
+  group_by(l2_Way_point) %>% 
   summarise(n(),Initial_pop=sum(l14_N_init, na.rm = TRUE),
             Deaths=sum(l16_N_deaths, na.rm = TRUE),
             # Affected=sum(l15_N_affected, na.rm = TRUE),
@@ -335,14 +573,13 @@ l %>%
          l17_N_interview,
          l61_apparent_prevalence) %>% 
   descr()
-
 ```
 
 # Apparent prevalence by farm
 ```{r}
 datatable(l %>% 
   # group_by(l4_Sub_village) %>%
-  group_by(l6_Name_producer) %>%
+  group_by(l2_Way_point) %>%
   summarise(n(), Initial_pop=sum(l14_N_init, na.rm = TRUE),
             Deaths=sum(l16_N_deaths, na.rm = TRUE),
             # Affected=sum(l15_N_affected, na.rm = TRUE),
@@ -351,15 +588,51 @@ datatable(l %>%
   # filter(Balance == 0) %>% 
   print(n=100))
 
+
+table(l$cases)
+
+datatable(l %>% 
+  # group_by(l4_Sub_village) %>%
+  group_by(cases) %>%
+  summarise(n(), 
+            Initial_pop=sum(l14_N_init, na.rm = TRUE),
+            Deaths=sum(l16_N_deaths, na.rm = TRUE),
+            Apparent_prevalence=round((Deaths/Initial_pop),4)*100) %>% 
+    arrange(desc(Apparent_prevalence)))
+
+
+library(epiR)
+epi.prev(l$l16_N_deaths[l$cases == "Case"], l$l14_N_init[l$cases == "Case"], 0.95, 0.95, conf.level = 0.99)
 ```
+
+# Total Apparent prevalence by cases and no cases
+```{r}
+datatable(l %>% 
+  # group_by(l4_Sub_village) %>%
+  group_by(cases) %>% 
+  summarise(n(), Initial_pop=sum(l14_N_init, na.rm = TRUE),
+            Deaths=sum(l16_N_deaths, na.rm = TRUE),
+            interview=sum(l17_N_interview, na.rm = TRUE),
+            reduction=Initial_pop-interview,
+            percent_red=(1-(interview/Initial_pop))*100,
+            Apparent_prevalence=round((Deaths/Initial_pop),4)*100) %>% 
+  arrange(desc(Apparent_prevalence)) %>% 
+  # filter(Balance == 0) %>% 
+  print(n=100))
+
+```
+
 
 # Total Apparent prevalence by village
 ```{r}
 datatable(l %>% 
-  group_by(l4_Sub_village) %>%
+  # group_by(l4_Sub_village) %>%
+  group_by(cases, l4_Sub_village) %>% 
   summarise(n(), Initial_pop=sum(l14_N_init, na.rm = TRUE),
             Deaths=sum(l16_N_deaths, na.rm = TRUE),
-            # Affected=sum(l15_N_affected, na.rm = TRUE),
+            interview=sum(l17_N_interview, na.rm = TRUE),
+            reduction=Initial_pop-interview,
+            percent_red=(1-(interview/Initial_pop))*100,
             Apparent_prevalence=round((Deaths/Initial_pop),4)*100) %>% 
   arrange(desc(Apparent_prevalence)) %>% 
   # filter(Balance == 0) %>% 
@@ -367,17 +640,16 @@ datatable(l %>%
 
 ```
 
-
 ## Distribution of initial and final population over villages
 ```{r}
-ggplot(l, aes(l14_N_init, l4_Sub_village, fill=l4_Sub_village))+
+ggplot(l, aes(l14_N_init, cases, fill=l4_Sub_village))+
   geom_boxplot()+
   labs(
     y=NULL,
     x="Number of pigs at the begining of the outbreak"
   )
 
-ggplot(l, aes(l17_N_interview, l4_Sub_village, fill=l4_Sub_village))+
+ggplot(l, aes(l17_N_interview, cases, fill=l4_Sub_village))+
   geom_boxplot()+
   labs(
     y=NULL,
@@ -385,6 +657,77 @@ ggplot(l, aes(l17_N_interview, l4_Sub_village, fill=l4_Sub_village))+
   )
 
 ```
+
+# Comparison between apparent prevalence
+```{r}
+l$ap <- round((l$l16_N_deaths/l$l14_N_init),4)*100
+
+table(l$ap)
+
+ggplot(l, aes(ap, cases, fill=l4_Sub_village))+
+  geom_boxplot()+
+  labs(
+    y=NULL,
+    x="Apparent prevalence"
+  )
+
+library(forcats)
+
+l <- l %>%
+  group_by(l4_Sub_village) %>%
+  mutate(median_ap = median(ap)) %>%
+  ungroup() %>%
+  mutate(l4_Sub_village = fct_reorder(l4_Sub_village, median_ap, .desc = TRUE))
+
+# Plot the boxplot
+ggplot(l, aes(x = l4_Sub_village, y = ap, fill = cases)) +
+  geom_boxplot() +
+  labs(
+    y = NULL,
+    x = "Apparent Prevalence"
+  ) +
+   theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+# Comparison between population modification
+```{r}
+l$p <- l$l14_N_init - l$l17_N_interview
+summary(l$p)
+
+l$pp <- round((l$l14_N_init+0.001)/l$l17_N_interview,5)*100
+summary(l$pp)
+
+ggplot(l, aes(ap, l4_Sub_village, fill=l4_Sub_village))+
+  geom_boxplot()+
+  labs(
+    y=NULL,
+    x="Apparent prevalence"
+  )
+
+library(forcats)
+
+l <- l %>%
+  group_by(l4_Sub_village) %>%
+  mutate(median_ap = median(ap)) %>%
+  ungroup() %>%
+  mutate(l4_Sub_village 
+         = fct_reorder(l4_Sub_village, median_ap, .desc = TRUE))
+
+# Plot the boxplot
+ggplot(data=l[l$cases == "Case",], 
+       aes(x = l4_Sub_village, 
+           y = ap, 
+           fill = cases)) +
+  geom_boxplot() +
+  labs(
+    y = NULL,
+    x = "Apparent Prevalence") +
+   theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
 # How many pigs did the household have at the start of the outbreak
 
 
@@ -451,19 +794,23 @@ l$pd_burned <- as.numeric(l$pd_burned)
 l$pd_latrine <- as.numeric(l$pd_latrine)
 l$pd_bush_river <- as.numeric(l$pd_bush_river)
 l$pd_other <- as.numeric(l$pd_ate)
-
 ```
-```{r}
 
-l %>% 
-  # group_by(l$l4_Sub_village) %>%
-  summarise(Ate=sum(pd_ate, na.rm =TRUE),
+
+```{r}
+actions_sick <- data.frame(t(l %>% 
+  group_by(cases) %>% 
+  summarise(
+            Ate=sum(pd_ate, na.rm =TRUE),
             Sold=sum(pd_sold, na.rm =TRUE),
             Burried=sum(pd_buried, na.rm =TRUE),
             Burned=sum(pd_burned, na.rm =TRUE),
             Latrine=sum(pd_latrine, na.rm =TRUE),
             Bush=sum(pd_bush_river, na.rm =TRUE),
-            Other=sum(pd_other, na.rm =TRUE),)
+            Other=sum(pd_other, na.rm =TRUE),)))
+
+actions_sick$resposes <- as.numeric(actions_sick$X2)/40
+datatable(actions_sick)
 
 l %>% 
   group_by(l$l4_Sub_village) %>%
@@ -475,67 +822,26 @@ l %>%
             Bush=sum(pd_bush_river, na.rm =TRUE),
             Other=sum(pd_other, na.rm =TRUE),)
 
-l$l30_pd_other_what
+l <- l %>% 
+  mutate(individual_what_did_sick_pigs=sum(pd_ate,
+                                           pd_sold, 
+                                           pd_buried,
+                                           pd_burned,
+                                           pd_latrine,
+                                           pd_bush_river,
+                                           pd_other, na.rm = TRUE))
 
+table(l$individual_what_did_sick_pigs)
+
+table(l$cases)
 ```
 
-<!-- # # What do you think caused the pig to get sick? (you can pick several)  -->
-<!-- # ```{r} -->
-<!-- # ## Changing to numerical to quantify -->
-<!-- # ```{r} -->
-<!-- #  -->
-<!-- # l$l31_Why_sick_Weather[l$l31_Why_sick_Weather == "NA"] <- NA -->
-<!-- # l$l32_Why_Witchcraft[l$l32_Why_Witchcraft == "NA"] <- NA -->
-<!-- # l$l33_Why_Poison[l$l33_Why_Poison == "NA"] <- NA -->
-<!-- # l$l34_Why_Jealousy[l$l34_Why_Jealousy == "NA"] <- NA -->
-<!-- # l$l34_Why_Jealousy[l$l35_Why_Someone_killed_it == "NA"] <- NA -->
-<!-- # l$l35_Why_Someone_killed_it[l$l35_Why_Someone_killed_it == "NA"] <- NA -->
-<!-- # l$l36_Why_pig_ate_something[l$l36_Why_pig_ate_something == "NA"] <- NA -->
-<!-- # l$l37_Why_infected_by_sick_pig[l$l37_Why_infected_by_sick_pig== "NA"] <- NA -->
-<!-- # l$l38_Why_got_infected_by_a_person[l$l38_Why_got_infected_by_a_person == "NA"] <-  -->
-<!-- #  -->
-<!-- #  -->
-<!-- # l$why_sick_weather <- l[,2] -->
-<!-- # l$why_sick_weater <- gsub("Yes", "1", l$why_sick_weater) -->
-<!-- # l$pd_weather <- gsub("No", "0", l$pd_weather) -->
-<!-- #  -->
-<!-- # l$pd_sold <- l$l24_pd_Sold -->
-<!-- # l$pd_sold <- gsub("Yes", "1", l$pd_sold) -->
-<!-- # l$pd_sold <- gsub("No", "0", l$pd_sold) -->
-<!-- #  -->
-<!-- # l$pd_buried <- l$l25_pd_buried -->
-<!-- # l$pd_buried <- gsub("Yes", "1", l$pd_buried) -->
-<!-- # l$pd_buried <- gsub("No", "0", l$pd_buried) -->
-<!-- #  -->
-<!-- # l$pd_burned <- l$l26_pd_burned -->
-<!-- # l$pd_burned <- gsub("Yes", "1", l$pd_burned) -->
-<!-- # l$pd_burned <- gsub("No", "0", l$pd_burned) -->
-<!-- #  -->
-<!-- # l$pd_latrine <- l$l27_pd_latrine -->
-<!-- # l$pd_latrine <- gsub("Yes", "1", l$pd_latrine) -->
-<!-- # l$pd_latrine <- gsub("No", "0", l$pd_latrine) -->
-<!-- #  -->
-<!-- # l$pd_bush_river <- l$l28_pd_bush_swamp_river -->
-<!-- # l$pd_bush_river <- gsub("Yes", "1", l$pd_bush_river) -->
-<!-- # l$pd_bush_river <- gsub("No", "0", l$pd_bush_river) -->
-<!-- #  -->
-<!-- # l$pd_other <- l$l29_pd_other -->
-<!-- # l$pd_other <- gsub("Yes", "1", l$pd_other) -->
-<!-- # l$pd_other <- gsub("No", "0", l$pd_other) -->
-<!-- #  -->
-<!-- # l$pd_ate <- as.numeric(l$pd_ate) -->
-<!-- # l$pd_sold <- as.numeric(l$pd_sold) -->
-<!-- # l$pd_buried <- as.numeric(l$pd_buried) -->
-<!-- # l$pd_burned <- as.numeric(l$pd_burned) -->
-<!-- # l$pd_latrine <- as.numeric(l$pd_latrine) -->
-<!-- # l$pd_bush_river <- as.numeric(l$pd_bush_river) -->
-<!-- # l$pd_other <- as.numeric(l$pd_ate) -->
-
 # Map
-## Preparing coordinates
+## Checking coordinates
+Preparing coordinates
 
-## ? 	Check Acayo Nighthy Santo nort coordinate (y), it is the same as x. Correct.
-## ? Check Christine Lukioiya / Innocen atimango easting (x) coordinate
+## ? 31	Check Acayo Nighthy Santo nort coordinate (y), it is the same as x. Correct.
+## ? 62 Check Christine Lukioiya / Innocen atimango easting (x) coordinate
 
 ```{r}
 l$y <- l$l9_Norting
@@ -546,50 +852,132 @@ l$x <- l$l10_Easting
 l$x <- gsub("-", ".", l$x)
 l$x <- as.numeric(l$x)
 
-plot(l$x, l$y)
+#? coordinates
+l$y[l$l2_Way_point == "31"] <- "2.57189"
+l$x[l$l2_Way_point == "56"] <- "32.061810"
 
-ggplot
+# plot(l$x, l$y)
 
 ```
 
 ## Manipulable map of the complete dataset
 ```{r}
 library(leaflet)
+
 l$owner <- l$l6_Name_producer
+l$id <- l$l2_Way_point
+l$village <- l$l4_Sub_village
+l$x <- as.numeric(l$x)
+l$y <- as.numeric(l$y)
 
 map <- leaflet(l) %>%
-  addProviderTiles(providers$Esri)
+  addProviderTiles(providers$Esri.WorldImagery)
+
+# palete for case and control
+pal <- colorFactor(c("red", "blue"), domain=c("Case", "Control"))
 
 mc <- map %>%
   setView(lng = 32, lat = 2, zoom = 7) %>%
-  addMarkers(~x, ~y,
-              popup = ~paste("Owner:", owner,
-                             "<br>", "Prevalence", l61_apparent_prevalence,
+  addCircleMarkers(~x, ~y,
+            stroke = FALSE, fillOpacity = 0.4,
+             color = ~pal(cases),
+             popup = ~paste("ID:", id,
+                            "<br>", "Owner:", owner,
+                             "<br>", "Prevalence", ap,
                              "<br>", "Deaths", l16_N_deaths))
-
-mc
-
 ```
+
 
 ## Manipulable map of the cases (farms with reported deaths)
 ```{r}
 
-l2 <- l %>% 
-  filter(l16_N_deaths > 0)
+library(viridis)
+library(leafsync)
 
+map <- leaflet(l) %>%
+  addProviderTiles(providers$OpenStreetMap.Mapnik)
 
-map2 <- leaflet(l2) %>%
-  # addProviderTiles(providers$OpenStreetMap)
-  addProviderTiles(providers$Esri.WorldImagery)
+# palete for case and control
+pal <- colorFactor(viridis_pal(option = "D")(length(unique(l$l4_Sub_village))), 
+                   domain=unique(l$l4_Sub_village))
 
-mp <- map2 %>%
+mv <- map %>%
   setView(lng = 32, lat = 2, zoom = 7) %>%
-  addMarkers(~x, ~y,
-              popup = ~paste("Owner:", owner,
-                             "<br>", "Aparent Prev", l61_apparent_prevalence,
-                             "<br>", "Deaths", l16_N_deaths))
+  addCircleMarkers(~x, ~y,
+            stroke = FALSE, fillOpacity = 1,
+             color = ~pal(l4_Sub_village),
+             popup = ~paste("Village", l4_Sub_village, 
+                            "<br>","ID:", id,
+                            "<br>", "Owner:", owner,
+                             "<br>", "Gender", l7_Gender,
+                             "<br>", "pigs_interv", l17_N_interview)) %>% 
+    addLegend(pal = pal,
+            values = ~l4_Sub_village,
+    position = "bottomleft")
+```
+# Combinaed map cases and villages
+```{r}
+leafsync::sync(mc,mv)
 
-mp
+```
+
+
+## pub map Lutuk
+```{r}
+library(ggmap)
+# lu <- get_stadiamap(bbox = c(left = 31, 
+#                                bottom = 2, 
+#                                right = 32, 
+#                                top = 3),
+#                       zoom = 8, 
+#                       arg = "terrain-background")
+
+```
+
+# Spatial temporal analysis
+## Preparing satscan files
+```{r}
+
+# pop
+# DPA_parr, amount, fecha
+# 
+# cases
+# DPA_parroq, amount, date
+# 
+# geo
+# DPA_parroq, lon, lat
+
+
+pop <- l %>% 
+  select(l2_Way_point, l14_N_init, Date_first_detection_ill_pig) %>%
+  mutate(Date_first_detection_ill_pig_completed=ifelse(is.na(Date_first_detection_ill_pig), as.Date("2024-01-01"), Date_first_detection_ill_pig)) %>% 
+  group_by(l2_Way_point, l14_N_init, Date_first_detection_ill_pig, Date_first_detection_ill_pig_completed)
+
+pop$Date_first_detection_ill_pig_completed <- as.Date(pop$Date_first_detection_ill_pig_completed)
+
+# First run with cases of october
+cases <- l %>% 
+  filter(cases == "Case") %>% 
+  filter(!is.na(Date_first_detection_ill_pig)) %>% 
+  select(l2_Way_point, l16_N_deaths, Date_first_detection_ill_pig) %>% 
+  group_by(l2_Way_point, l16_N_deaths, Date_first_detection_ill_pig)
+
+#second run with the cases since 2024-01-01
+cases <- l %>% 
+  filter(cases == "Case") %>% 
+  filter(year(Date_first_detection_ill_pig) == "2024") %>% 
+  filter(!is.na(Date_first_detection_ill_pig)) %>% 
+  select(l2_Way_point, l16_N_deaths, Date_first_detection_ill_pig) %>% 
+  group_by(l2_Way_point, l16_N_deaths, Date_first_detection_ill_pig)
+
+
+geo <- l %>% 
+  select(l2_Way_point, y, x) %>% 
+  group_by(l2_Way_point, y, x)
+
+# write.csv(pop, file = "pop.csv")
+# write.csv(cases, file = "cases.csv")
+# write.csv(geo, file = "geo.csv")
 
 ```
 
