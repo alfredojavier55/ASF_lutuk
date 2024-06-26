@@ -127,12 +127,12 @@ l$Date_first_detection_ill_pig <- dmy(l$l12_first_detection_ill_pig)
 l$Date_first_pig_die <- dmy(l$l13_first_pig_die)
 l$Date_interview <- dmy(l$l5_Date_interview)
 
-l %>% 
-  select(l2_Way_point, l6_Name_producer, 
-         Date_interview,
-         l12_first_detection_ill_pig,
-         Date_first_detection_ill_pig, l16_N_deaths) %>% 
-  filter(is.na(Date_first_detection_ill_pig) & l16_N_deaths > 0)
+# l %>% 
+#   select(l2_Way_point, l6_Name_producer, 
+#          Date_interview,
+#          l12_first_detection_ill_pig,
+#          Date_first_detection_ill_pig, l16_N_deaths) %>% 
+#   filter(is.na(Date_first_detection_ill_pig) & l16_N_deaths > 0)
 
 #Correcting 66 from the form 
 l$Date_first_detection_ill_pig[l$l2_Way_point == 66] <- l$Date_interview[l$l2_Way_point == 66] - days(53)
@@ -140,7 +140,7 @@ l$Date_first_detection_ill_pig[l$l2_Way_point == 116] <- l$Date_interview[l$l2_W
 ```
 ## Premises with death pigs but without date of first death of pig
 ## ?? 37,38,40,42,43 I assume that date of first pig die will be the mean days between detection and die 
-```{r}
+```{r eval=FALSE, include=FALSE}
 l %>% 
 select(l2_Way_point,
        l5_Date_interview,
@@ -152,7 +152,7 @@ select(l2_Way_point,
 ```
 
 ## 6 outbreaks in 2023 and 46 in 2024 NA 47
-```{r}
+```{r eval=FALSE, include=FALSE}
 l %>% 
   group_by(year(Date_first_detection_ill_pig)) %>% 
   summarise(n())
@@ -167,28 +167,28 @@ l %>%
 ## 31,37,46,49,72,79 replaced date of first detection in 2023 to 2024 interview date and death date matches
 ## ?31 replaced date of death 2024 to 2023 
 ```{r}
-l %>% 
-  filter(year(Date_first_detection_ill_pig) == 2023) %>% 
-  select(l2_Way_point,
-       l6_Name_producer,
-       Date_first_detection_ill_pig,
-       Date_interview,
-       Date_first_pig_die,
-       l16_N_deaths)
+# l %>% 
+#   filter(year(Date_first_detection_ill_pig) == 2023) %>% 
+#   select(l2_Way_point,
+#        l6_Name_producer,
+#        Date_first_detection_ill_pig,
+#        Date_interview,
+#        Date_first_pig_die,
+#        l16_N_deaths)
 
 l <- l %>% 
   mutate(Date_first_detection_ill_pig = as.Date(ifelse(lubridate::year(Date_first_detection_ill_pig) == 2023, 
          Date_first_detection_ill_pig + lubridate::years(1),
          Date_first_detection_ill_pig)))
 
-l %>% 
-  filter(year(Date_first_pig_die) == 2023) %>% 
-  select(l2_Way_point,
-       l6_Name_producer,
-       Date_first_detection_ill_pig,
-       Date_interview,
-       Date_first_pig_die,
-       l16_N_deaths)
+# l %>% 
+#   filter(year(Date_first_pig_die) == 2023) %>% 
+#   select(l2_Way_point,
+#        l6_Name_producer,
+#        Date_first_detection_ill_pig,
+#        Date_interview,
+#        Date_first_pig_die,
+#        l16_N_deaths)
 
 l <- l %>% 
   mutate(Date_first_pig_die = as.Date(ifelse(lubridate::year(Date_first_pig_die) == 2023, 
@@ -234,15 +234,15 @@ l %>%
 ## Events in October and december, make sense??
 ## form 98 corrected Date of interview from image
 ```{r}
-l %>% 
-select(l2_Way_point,
-       l5_Date_interview,
-       Date_interview,
-       l6_Name_producer,
-       Date_first_detection_ill_pig,
-       Date_first_pig_die,
-       l16_N_deaths) %>% 
-  filter(month(Date_first_detection_ill_pig) >5) 
+# l %>% 
+# select(l2_Way_point,
+#        l5_Date_interview,
+#        Date_interview,
+#        l6_Name_producer,
+#        Date_first_detection_ill_pig,
+#        Date_first_pig_die,
+#        l16_N_deaths) %>% 
+#   filter(month(Date_first_detection_ill_pig) >5) 
 
 #Correcting 98 from the form 
 l$Date_interview[l$l2_Way_point == 98] <- as.Date("2024-03-27")
@@ -254,15 +254,15 @@ l <- l %>%
          Date_first_detection_ill_pig)))
 
 
-l %>% 
-select(l2_Way_point,
-       l5_Date_interview,
-       Date_interview,
-       l6_Name_producer,
-       Date_first_detection_ill_pig,
-       Date_first_pig_die,
-       l16_N_deaths) %>% 
-  filter(month(Date_first_pig_die) >5)
+# l %>% 
+# select(l2_Way_point,
+#        l5_Date_interview,
+#        Date_interview,
+#        l6_Name_producer,
+#        Date_first_detection_ill_pig,
+#        Date_first_pig_die,
+#        l16_N_deaths) %>% 
+#   filter(month(Date_first_pig_die) >5)
 
 
 l <- l %>% 
@@ -273,7 +273,7 @@ l <- l %>%
 
 ```
 # Visualization of months
-```{r}
+```{r eval=FALSE, include=FALSE}
 l %>% 
   group_by(month=floor_date(Date_first_detection_ill_pig, unit= "month")) %>% 
   summarise(outbreaks=n()) %>% 
@@ -319,15 +319,15 @@ l %>%
 
 
 
-l %>% 
-  group_by(l2_Way_point,
-          l6_Name_producer, 
-           Date_first_detection_ill_pig, 
-           Date_first_pig_die,
-           Date_interview, 
-           dif_first_detection_to_interview) %>% 
-  filter(dif_first_detection_to_interview <0) %>%
-  summarise(n())
+# l %>% 
+#   group_by(l2_Way_point,
+#           l6_Name_producer, 
+#            Date_first_detection_ill_pig, 
+#            Date_first_pig_die,
+#            Date_interview, 
+#            dif_first_detection_to_interview) %>% 
+#   filter(dif_first_detection_to_interview <0) %>%
+#   summarise(n())
 
 #Correcting 35 from the form 
 l$Date_first_detection_ill_pig[l$l2_Way_point == 35] <- as.Date("2024-03-05")
@@ -345,17 +345,17 @@ summary(as.numeric(l$dif_detection_death))
 boxplot(as.numeric(l$dif_detection_death))
 
 
-l %>% 
-  group_by(l2_Way_point,
-          l6_Name_producer, 
-           Date_first_detection_ill_pig, 
-           Date_first_pig_die,
-           Date_interview, 
-           dif_first_detection_to_interview,
-            dif_detection_death) %>% 
-  filter(l16_N_deaths >0) %>%
-  summarise(n()) %>% 
-  arrange(desc(dif_detection_death))
+# l %>% 
+#   group_by(l2_Way_point,
+#           l6_Name_producer, 
+#            Date_first_detection_ill_pig, 
+#            Date_first_pig_die,
+#            Date_interview, 
+#            dif_first_detection_to_interview,
+#             dif_detection_death) %>% 
+#   filter(l16_N_deaths >0) %>%
+#   summarise(n()) %>% 
+#   arrange(desc(dif_detection_death))
 
 # Corrected 80
 l$Date_first_pig_die[l$l2_Way_point == 80] <- as.Date("2024-02-29")
@@ -383,15 +383,15 @@ l <- l %>%
 table(l$cases)
 
 
-l %>% 
-  select(l2_Way_point, cases, l16_N_deaths, l14_N_init, l15_N_affected) %>% 
-  filter(cases == "Control") %>% 
-  filter(l16_N_deaths >0)
-
-l %>% 
-  select(l2_Way_point, cases, l16_N_deaths, l14_N_init, l15_N_affected, Date_first_detection_ill_pig, Date_first_pig_die) %>% 
-  filter(cases == "Control") %>% 
-  filter(year(Date_first_detection_ill_pig) ==  "2023")
+# l %>% 
+#   select(l2_Way_point, cases, l16_N_deaths, l14_N_init, l15_N_affected) %>% 
+#   filter(cases == "Control") %>% 
+#   filter(l16_N_deaths >0)
+# 
+# l %>% 
+#   select(l2_Way_point, cases, l16_N_deaths, l14_N_init, l15_N_affected, Date_first_detection_ill_pig, Date_first_pig_die) %>% 
+#   filter(cases == "Control") %>% 
+#   filter(year(Date_first_detection_ill_pig) ==  "2023")
 
 
 ```
@@ -474,7 +474,7 @@ l$l19_pnd_sold_alive <- as.numeric(l$l21_pnd_other)
 ## Individual farms were balance is not 0 (death+non.death(slaughter+sold+kept)). Please check this 16 surveys:
 i.e. Owor Gedge at the start of the outbreak had 20 pigs, no deaths but kept 2, maybe he kept 20 instead of 2. The balance is 18. 20-2=18
 Apiyo Grace at the start of the outbreak had 1 pig, no deaths, he kept 10, maybe he kept 1 instead of 10. Balance is -9. 1-10=-9.
-```{r}
+```{r eval=FALSE, include=FALSE}
 datatable(l %>% 
   # group_by(l4_Sub_village) %>% 
   group_by(l2_Way_point, l6_Name_producer) %>% 
@@ -863,8 +863,12 @@ l$x[l$l2_Way_point == "56"] <- "32.061810"
 ## Manipulable map of the complete dataset
 ```{r}
 library(leaflet)
+library(stringr)
+s <- "Alfredo Acosta"
+paste(substr(word(s, 1), 1,3), substr(word(s, 2), 1,3))
 
-l$owner <- l$l6_Name_producer
+
+l$owner <- paste(substr(word(l$l6_Name_producer, 1), 1,3), substr(word(l$l6_Name_producer, 2), 1,2))
 l$id <- l$l2_Way_point
 l$village <- l$l4_Sub_village
 l$x <- as.numeric(l$x)
@@ -908,7 +912,7 @@ mv <- map %>%
              color = ~pal(l4_Sub_village),
              popup = ~paste("Village", l4_Sub_village, 
                             "<br>","ID:", id,
-                            "<br>", "Owner:", owner,
+                            # "<br>", "Owner:", owner,
                              "<br>", "Gender", l7_Gender,
                              "<br>", "pigs_interv", l17_N_interview)) %>% 
     addLegend(pal = pal,
